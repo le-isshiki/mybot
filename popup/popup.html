@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>PocketOption OTC Bot</title>
+  <style>
+    :root {
+      --bg: #0d1117; --surface: #161b22; --border: #30363d;
+      --green: #3fb950; --red: #f85149; --yellow: #d29922;
+      --blue: #58a6ff; --text: #c9d1d9; --sub: #8b949e;
+      --radius: 6px; --font: 'Segoe UI', system-ui, sans-serif;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--bg); color: var(--text); font: 13px var(--font); width: 380px; min-height: 520px; }
+
+    header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 10px 14px; display: flex; align-items: center; justify-content: space-between; }
+    header h1 { font-size: 14px; font-weight: 600; letter-spacing: .3px; }
+    .version { font-size: 10px; color: var(--sub); }
+
+    .status-bar { display: flex; align-items: center; gap: 8px; padding: 8px 14px; background: #0d1117; border-bottom: 1px solid var(--border); font-size: 11px; }
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--sub); flex-shrink: 0; }
+    .dot.active { background: var(--green); box-shadow: 0 0 6px var(--green); }
+    .dot.warning { background: var(--yellow); }
+
+    .tabs { display: flex; border-bottom: 1px solid var(--border); }
+    .tab { flex: 1; padding: 8px 0; text-align: center; font-size: 12px; cursor: pointer; color: var(--sub); border-bottom: 2px solid transparent; transition: .15s; }
+    .tab.active { color: var(--blue); border-color: var(--blue); }
+
+    .panel { display: none; padding: 14px; }
+    .panel.active { display: block; }
+
+    .field { margin-bottom: 12px; }
+    label { display: block; font-size: 11px; color: var(--sub); margin-bottom: 4px; font-weight: 500; }
+    input, select { width: 100%; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); color: var(--text); padding: 6px 9px; font-size: 12px; outline: none; transition: border-color .15s; }
+    input:focus, select:focus { border-color: var(--blue); }
+    select option { background: var(--surface); }
+
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+
+    .toggle-wrap { display: flex; align-items: center; justify-content: space-between; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 8px 12px; margin-bottom: 12px; }
+    .toggle-label { font-size: 13px; font-weight: 500; }
+    .toggle { position: relative; width: 40px; height: 22px; }
+    .toggle input { opacity: 0; width: 0; height: 0; }
+    .slider { position: absolute; inset: 0; background: #3a3f47; border-radius: 11px; cursor: pointer; transition: .2s; }
+    .slider:before { content: ''; position: absolute; left: 3px; top: 3px; width: 16px; height: 16px; background: white; border-radius: 50%; transition: .2s; }
+    input:checked + .slider { background: var(--green); }
+    input:checked + .slider:before { transform: translateX(18px); }
+
+    .btn { width: 100%; padding: 8px; border-radius: var(--radius); border: none; font-size: 13px; font-weight: 600; cursor: pointer; transition: .15s; margin-top: 6px; }
+    .btn-save { background: var(--blue); color: #fff; }
+    .btn-save:hover { opacity: .85; }
+    .btn-stop { background: var(--red); color: #fff; }
+
+    .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
+    .stat-box { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 12px; }
+    .stat-val { font-size: 20px; font-weight: 700; margin-bottom: 2px; }
+    .stat-lbl { font-size: 10px; color: var(--sub); }
+    .stat-val.green { color: var(--green); }
+    .stat-val.red { color: var(--red); }
+    .stat-val.blue { color: var(--blue); }
+
+    .signal-box { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 12px; margin-bottom: 10px; }
+    .signal-box .sig-dir { font-size: 18px; font-weight: 700; margin-bottom: 4px; }
+    .sig-dir.call { color: var(--green); }
+    .sig-dir.put  { color: var(--red); }
+    .sig-dir.none { color: var(--sub); }
+    .signal-strats { margin-top: 6px; }
+    .strat-line { font-size: 10px; color: var(--sub); padding: 2px 0; border-top: 1px solid var(--border); }
+
+    #log-panel { font-family: monospace; font-size: 10px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 8px; height: 280px; overflow-y: auto; }
+    .log-line { padding: 1px 0; line-height: 1.4; }
+    .log-line.error { color: var(--red); }
+    .log-line.warn  { color: var(--yellow); }
+    .log-line.info  { color: var(--text); }
+
+    .conf-bar-wrap { margin: 4px 0; }
+    .conf-bar { height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; }
+    .conf-bar-fill { height: 100%; background: var(--green); border-radius: 2px; transition: width .3s; }
+    .conf-pct { font-size: 10px; color: var(--sub); }
+
+    .badge { display: inline-block; font-size: 9px; padding: 2px 6px; border-radius: 10px; font-weight: 600; }
+    .badge-demo { background: #2d3748; color: var(--yellow); }
+    .badge-live { background: #1a2e1a; color: var(--green); }
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <h1>PocketOption OTC Bot</h1>
+      <div class="version">v1.0.0 &nbsp; <span id="mode-badge" class="badge badge-demo">DEMO</span></div>
+    </div>
+    <div id="conn-status" style="text-align:right">
+      <div class="dot" id="ws-dot"></div>
+      <div style="font-size:10px;color:var(--sub);margin-top:2px" id="balance-display">$0.00</div>
+    </div>
+  </header>
+
+  <div class="status-bar">
+    <div class="dot" id="bot-dot"></div>
+    <span id="bot-status-text">Bot inactive — configure and enable below</span>
+  </div>
+
+  <div class="tabs">
+    <div class="tab active" data-tab="dashboard">Dashboard</div>
+    <div class="tab" data-tab="strategy">Strategy</div>
+    <div class="tab" data-tab="money">Risk</div>
+    <div class="tab" data-tab="log">Log</div>
+  </div>
+
+  <!-- DASHBOARD -->
+  <div class="panel active" id="panel-dashboard">
+    <div class="toggle-wrap">
+      <span class="toggle-label">Auto Trading</span>
+      <label class="toggle">
+        <input type="checkbox" id="toggle-enabled" />
+        <span class="slider"></span>
+      </label>
+    </div>
+
+    <div class="stats-grid">
+      <div class="stat-box"><div class="stat-val blue" id="stat-trades">0</div><div class="stat-lbl">Trades</div></div>
+      <div class="stat-box"><div class="stat-val" id="stat-winrate">—%</div><div class="stat-lbl">Win Rate</div></div>
+      <div class="stat-box"><div class="stat-val" id="stat-pnl">$0.00</div><div class="stat-lbl">Daily P&L</div></div>
+      <div class="stat-box"><div class="stat-val blue" id="stat-candles">0</div><div class="stat-lbl">Candles</div></div>
+    </div>
+
+    <div class="signal-box">
+      <div style="font-size:11px;color:var(--sub);margin-bottom:4px">LAST SIGNAL</div>
+      <div class="sig-dir none" id="sig-direction">NO SIGNAL</div>
+      <div class="conf-bar-wrap">
+        <div class="conf-pct" id="sig-confidence">Confidence: —</div>
+        <div class="conf-bar"><div class="conf-bar-fill" id="conf-fill" style="width:0%"></div></div>
+      </div>
+      <div class="signal-strats" id="sig-strategies"></div>
+    </div>
+
+    <div style="font-size:11px;color:var(--sub);margin-bottom:6px">LAST TRADES</div>
+    <div id="trade-history" style="font-size:11px;max-height:80px;overflow-y:auto;"></div>
+  </div>
+
+  <!-- STRATEGY -->
+  <div class="panel" id="panel-strategy">
+    <div class="field">
+      <label>Active Asset (OTC)</label>
+      <select id="cfg-asset">
+        <option value="EURUSD_otc">EUR/USD OTC</option>
+        <option value="GBPUSD_otc">GBP/USD OTC</option>
+        <option value="USDJPY_otc">USD/JPY OTC</option>
+        <option value="AUDUSD_otc">AUD/USD OTC</option>
+        <option value="USDCAD_otc">USD/CAD OTC</option>
+        <option value="EURGBP_otc">EUR/GBP OTC</option>
+        <option value="USDCHF_otc">USD/CHF OTC</option>
+        <option value="NZDUSD_otc">NZD/USD OTC</option>
+        <option value="EURJPY_otc">EUR/JPY OTC</option>
+        <option value="GBPJPY_otc">GBP/JPY OTC</option>
+      </select>
+    </div>
+    <div class="row">
+      <div class="field">
+        <label>Expiry (seconds)</label>
+        <select id="cfg-expiry">
+          <option value="30">30s</option>
+          <option value="60" selected>1 min</option>
+          <option value="120">2 min</option>
+          <option value="180">3 min</option>
+          <option value="300">5 min</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Primary Timeframe</label>
+        <select id="cfg-period">
+          <option value="60" selected>1 min candles</option>
+          <option value="300">5 min candles</option>
+        </select>
+      </div>
+    </div>
+    <div class="row">
+      <div class="field">
+        <label>Min Confidence (%)</label>
+        <input type="number" id="cfg-confidence" value="65" min="50" max="95" />
+      </div>
+      <div class="field">
+        <label>Strategies Required</label>
+        <input type="number" id="cfg-agreement" value="2" min="1" max="4" />
+      </div>
+    </div>
+    <div class="row">
+      <div class="field">
+        <label>Cooldown (seconds)</label>
+        <input type="number" id="cfg-cooldown" value="60" min="10" />
+      </div>
+      <div class="field">
+        <label>Max Trades/Hour</label>
+        <input type="number" id="cfg-maxhour" value="8" min="1" max="30" />
+      </div>
+    </div>
+    <div class="toggle-wrap">
+      <span class="toggle-label">Demo Mode</span>
+      <label class="toggle">
+        <input type="checkbox" id="cfg-demo" checked />
+        <span class="slider"></span>
+      </label>
+    </div>
+    <button class="btn btn-save" id="btn-save-strategy">Save Strategy Settings</button>
+  </div>
+
+  <!-- MONEY MANAGEMENT -->
+  <div class="panel" id="panel-money">
+    <div class="field">
+      <label>Money Management Mode</label>
+      <select id="cfg-money-mode">
+        <option value="fixed">Fixed Amount</option>
+        <option value="fixed_percent" selected>Fixed % of Balance</option>
+        <option value="martingale">Martingale</option>
+        <option value="anti_martingale">Anti-Martingale</option>
+        <option value="kelly">Kelly Criterion</option>
+      </select>
+    </div>
+    <div class="row" id="row-fixed" style="display:none">
+      <div class="field">
+        <label>Trade Amount ($)</label>
+        <input type="number" id="cfg-amount" value="1" min="1" step="0.5" />
+      </div>
+    </div>
+    <div class="row" id="row-percent">
+      <div class="field">
+        <label>Risk per Trade (%)</label>
+        <input type="number" id="cfg-percent" value="1" min="0.1" max="5" step="0.1" />
+      </div>
+      <div class="field">
+        <label>Max per Trade (%)</label>
+        <input type="number" id="cfg-max-pct" value="5" min="1" max="20" />
+      </div>
+    </div>
+    <div class="row" id="row-martingale" style="display:none">
+      <div class="field">
+        <label>Multiplier</label>
+        <input type="number" id="cfg-mult" value="2" min="1.2" max="3" step="0.1" />
+      </div>
+      <div class="field">
+        <label>Max Levels</label>
+        <input type="number" id="cfg-maxlevel" value="3" min="1" max="5" />
+      </div>
+    </div>
+    <div class="field">
+      <label>Daily Loss Limit (%)</label>
+      <input type="number" id="cfg-daily-loss" value="20" min="5" max="50" />
+    </div>
+    <button class="btn btn-save" id="btn-save-money">Save Risk Settings</button>
+  </div>
+
+  <!-- LOG -->
+  <div class="panel" id="panel-log">
+    <div id="log-panel"></div>
+    <button class="btn btn-stop" id="btn-clear-log" style="margin-top:8px;background:var(--border);color:var(--text);">Clear Log</button>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

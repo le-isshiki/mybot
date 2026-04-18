@@ -1,0 +1,14 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.env
+output/
+data/
+*.db
+*.db-shm
+*.db-wal
+tools/probe_*.py
+.venv/
+venv/
+node_modules/
+dist/

@@ -1,0 +1,19 @@
+version: '3.9'
+
+services:
+  reconai:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data/output:/app/output
+      - ./data/tools:/app/tools
+      - ./data/wordlists:/app/wordlists
+      - ./data/db:/app/backend
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - DATABASE_URL=sqlite+aiosqlite:////app/backend/reconai.db
+      - OUTPUT_DIR=/app/output
+      - CUSTOM_TOOLS_DIR=/app/tools
+      - WORDLISTS_DIR=/app/wordlists
+    restart: unless-stopped
